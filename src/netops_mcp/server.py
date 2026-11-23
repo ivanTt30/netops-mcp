@@ -4,11 +4,11 @@ from typing import Annotated
 
 import anyio
 from mcp.server import MCPServer
-from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.mcpserver.exceptions import ResourceError, ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
-from . import cisco, diagnostics, subnetting
+from . import cisco, diagnostics, reference, subnetting
 
 mcp = MCPServer(
     name="netops-mcp",
@@ -159,6 +159,41 @@ def generar_config_router(
         )
     except cisco.CiscoConfigError as error:
         raise ToolError(str(error)) from None
+
+# --- Resources: datos de consulta que el usuario o la app pueden adjuntar ---
+
+
+@mcp.resource(
+    "netops://referencia/puertos",
+    title="Puertos bien conocidos",
+    description="Tabla de puertos y servicios habituales (SSH, DNS, HTTP, MQTT...).",
+    mime_type="text/markdown",
+)
+def recurso_puertos() -> str:
+    return reference.tabla_puertos()
+
+
+@mcp.resource(
+    "netops://referencia/cidr",
+    title="Chuleta CIDR",
+    description="Máscara, wildcard y hosts útiles de /8 a /32.",
+    mime_type="text/markdown",
+)
+def recurso_cidr() -> str:
+    return reference.tabla_cidr()
+
+
+@mcp.resource(
+    "netops://subred/{ip}/{prefijo}",
+    title="Información de una subred",
+    description="Datos de cualquier subred, p. ej. netops://subred/192.168.1.0/24",
+    mime_type="application/json",
+)
+def recurso_subred(ip: str, prefijo: str) -> str:
+    try:
+        return subnetting.subnet_info(f"{ip}/{prefijo}").model_dump_json(indent=2)
+    except subnetting.SubnettingError as error:
+        raise ResourceError(str(error)) from None
 
 def main() -> None:
     """Arranca el servidor MCP usando stdio (entrada y salida estándar)."""
