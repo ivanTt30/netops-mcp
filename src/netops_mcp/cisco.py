@@ -2,11 +2,12 @@
 
 Solo genera texto: no se conecta a ningún equipo.
 """
-
+import ipaddress
 import re
 
 from pydantic import BaseModel
 
+from .subnetting import SubnettingError, parse_network
 # Interfaces válidas: Gi0/1, Fa0/1-12, GigabitEthernet0/0/1...
 PATRON_INTERFAZ = re.compile(
     r"^(GigabitEthernet|FastEthernet|Ethernet|Gi|Fa|Eth?)\d+(/\d+){0,2}(-\d+)?$",
@@ -142,6 +143,107 @@ def config_vlans_switch(
                 "show vlan brief",
                 "show interfaces trunk",
             ],
+        )
+    )
+    return unir_pasos(pasos)
+
+
+def config_router_on_a_stick(
+    interfaz: str,
+    subredes: dict[int, str],
+    con_dhcp: bool = True,
+    dns: str = "8.8.8.8",
+) -> ConfigResult:
+    """Router-on-a-stick: una subinterfaz por VLAN (gateway = primera IP) y DHCP opcional."""
+    interfaz = validar_interfaz(interfaz)
+    if "-" in interfaz:
+        raise CiscoConfigError("La interfaz del router debe ser una sola, no un rango.")
+    if not subredes:
+        raise CiscoConfigError("Indica al menos una VLAN con su subred.")
+    try:
+        ipaddress.IPv4Address(dns)
+    except ValueError:
+        raise CiscoConfigError(f"El DNS '{dns}' no es una IPv4 válida.") from None
+
+    # Validar y convertir cada subred
+    redes: dict[int, ipaddress.IPv4Network] = {}
+    for vlan_id, texto in sorted(subredes.items()):
+        validar_vlan(vlan_id)
+        try:
+            redes[vlan_id] = parse_network(texto)
+        except SubnettingError as error:
+            raise CiscoConfigError(str(error)) from None
+
+    # Paso 1: activar la interfaz física (no lleva IP)
+    pasos = [
+        PasoConfig(
+            titulo="Activar la interfaz física",
+            explicacion="La interfaz que va al switch no lleva IP; solo hay que levantarla.",
+            comandos=[
+                "enable",
+                "configure terminal",
+                f"interface {interfaz}",
+                " no shutdown",
+                " exit",
+            ],
+        )
+    ]
+
+    # Paso 2: una subinterfaz por VLAN
+    comandos = []
+    for vlan_id, red in redes.items():
+        gateway = red.network_address + 1
+        comandos += [
+            f"interface {interfaz}.{vlan_id}",
+            f" encapsulation dot1Q {vlan_id}",
+            f" ip address {gateway} {red.netmask}",
+            " exit",
+        ]
+    pasos.append(
+        PasoConfig(
+            titulo="Crear una subinterfaz por VLAN",
+            explicacion="Cada subinterfaz es la puerta de enlace de su VLAN (primera IP de la red).",
+            comandos=comandos,
+        )
+    )
+
+    # Pasos 3 y 4: DHCP
+    if con_dhcp:
+        pasos.append(
+            PasoConfig(
+                titulo="Excluir las puertas de enlace del DHCP",
+                explicacion="Así el router nunca reparte la IP que él mismo usa.",
+                comandos=[
+                    f"ip dhcp excluded-address {r.network_address + 1}" for r in redes.values()
+                ],
+            )
+        )
+        comandos = []
+        for vlan_id, red in redes.items():
+            comandos += [
+                f"ip dhcp pool VLAN{vlan_id}",
+                f" network {red.network_address} {red.netmask}",
+                f" default-router {red.network_address + 1}",
+                f" dns-server {dns}",
+                " exit",
+            ]
+        pasos.append(
+            PasoConfig(
+                titulo="Crear un pool DHCP por VLAN",
+                explicacion="Cada VLAN recibe IPs de su subred, con su gateway y su DNS.",
+                comandos=comandos,
+            )
+        )
+
+    # Último paso: guardar y verificar
+    verificar = ["end", "copy running-config startup-config", "show ip interface brief"]
+    if con_dhcp:
+        verificar.append("show ip dhcp binding")
+    pasos.append(
+        PasoConfig(
+            titulo="Guardar y verificar",
+            explicacion="Guardamos y comprobamos las subinterfaces y las IPs repartidas.",
+            comandos=verificar,
         )
     )
     return unir_pasos(pasos)
