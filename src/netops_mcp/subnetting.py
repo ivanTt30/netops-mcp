@@ -79,7 +79,6 @@ def subnet_info(red: str) -> SubnetInfo:
     )
 
 
-
 class IpCheck(BaseModel):
     """Resultado de comprobar si una IP pertenece a una red."""
 
@@ -110,7 +109,6 @@ def ip_in_network(ip: str, red: str) -> IpCheck:
         papel = "host utilizable"
 
     return IpCheck(ip=str(direccion), red=str(net), pertenece=direccion in net, papel=papel)
-
 
 
 def prefijo_para_hosts(hosts: int) -> int:
@@ -161,9 +159,7 @@ def vlsm(red_base: str, necesidades: dict[str, int]) -> VlsmResult:
         tamano = 2 ** (32 - prefijo)
 
         if siguiente + tamano - 1 > final:
-            raise SubnettingError(
-                f"No queda espacio en {base} para '{nombre}' ({hosts} hosts)."
-            )
+            raise SubnettingError(f"No queda espacio en {base} para '{nombre}' ({hosts} hosts).")
 
         info = subnet_info(f"{ipaddress.IPv4Address(siguiente)}/{prefijo}")
         subredes.append(

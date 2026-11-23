@@ -56,7 +56,6 @@ def resolver_dns(dominio: str) -> DnsResult:
     return DnsResult(dominio=host, resuelto=True, ipv4=ipv4, ipv6=ipv6)
 
 
-
 class PortResult(BaseModel):
     """Resultado de comprobar un puerto TCP."""
 
@@ -79,7 +78,10 @@ def comprobar_puerto(host: str, puerto: int, timeout: float = 3.0) -> PortResult
         with socket.create_connection((destino, puerto), timeout=timeout):
             ms = (time.perf_counter() - inicio) * 1000
             return PortResult(
-                host=destino, puerto=puerto, abierto=True, estado="abierto",
+                host=destino,
+                puerto=puerto,
+                abierto=True,
+                estado="abierto",
                 latencia_ms=round(ms, 2),
             )
     except TimeoutError:
@@ -89,7 +91,6 @@ def comprobar_puerto(host: str, puerto: int, timeout: float = 3.0) -> PortResult
     except OSError as error:
         estado = f"error: {error.strerror or error}"
     return PortResult(host=destino, puerto=puerto, abierto=False, estado=estado)
-
 
 
 MAX_PAQUETES = 10

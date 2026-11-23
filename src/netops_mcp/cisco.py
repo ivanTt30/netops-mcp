@@ -2,12 +2,14 @@
 
 Solo genera texto: no se conecta a ningún equipo.
 """
+
 import ipaddress
 import re
 
 from pydantic import BaseModel
 
 from .subnetting import SubnettingError, parse_network
+
 # Interfaces válidas: Gi0/1, Fa0/1-12, GigabitEthernet0/0/1...
 PATRON_INTERFAZ = re.compile(
     r"^(GigabitEthernet|FastEthernet|Ethernet|Gi|Fa|Eth?)\d+(/\d+){0,2}(-\d+)?$",

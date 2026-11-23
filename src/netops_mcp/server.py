@@ -30,6 +30,8 @@ def calcular_subred(
         return subnetting.subnet_info(red)
     except subnetting.SubnettingError as error:
         raise ToolError(str(error)) from None
+
+
 @mcp.tool()
 def comprobar_ip_en_red(
     ip: Annotated[str, Field(description="Dirección IPv4, p. ej. 192.168.1.130")],
@@ -40,6 +42,8 @@ def comprobar_ip_en_red(
         return subnetting.ip_in_network(ip, red)
     except subnetting.SubnettingError as error:
         raise ToolError(str(error)) from None
+
+
 class RequisitoSubred(BaseModel):
     """Una subred que hay que crear y los hosts que necesita."""
 
@@ -60,6 +64,7 @@ def dividir_vlsm(
         return subnetting.vlsm(red_base, {s.nombre: s.hosts for s in subredes})
     except subnetting.SubnettingError as error:
         raise ToolError(str(error)) from None
+
 
 # Estas tools salen a la red real: se lo indicamos al cliente con "annotations"
 SONDA_DE_RED = ToolAnnotations(read_only_hint=True, open_world_hint=True)
@@ -98,6 +103,8 @@ async def hacer_ping(
         return await anyio.to_thread.run_sync(diagnostics.hacer_ping, host, paquetes)
     except diagnostics.DiagnosticsError as error:
         raise ToolError(str(error)) from None
+
+
 # Estas tools solo generan texto: no tocan ningún equipo ni salen a la red
 SOLO_TEXTO = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 
@@ -160,6 +167,7 @@ def generar_config_router(
     except cisco.CiscoConfigError as error:
         raise ToolError(str(error)) from None
 
+
 # --- Resources: datos de consulta que el usuario o la app pueden adjuntar ---
 
 
@@ -195,6 +203,7 @@ def recurso_subred(ip: str, prefijo: str) -> str:
     except subnetting.SubnettingError as error:
         raise ResourceError(str(error)) from None
 
+
 # --- Prompts: plantillas de tareas que el usuario elige desde el cliente ---
 
 
@@ -223,6 +232,7 @@ def diagnosticar_conectividad(host: str, puerto: str = "443") -> str:
         f"3. `comprobar_puerto` en el {puerto}: ¿el servicio escucha? (capa de transporte, TCP)\n"
         "Explica qué indica cada resultado y cuál es la causa más probable del problema."
     )
+
 
 def main() -> None:
     """Arranca el servidor MCP usando stdio (entrada y salida estándar)."""
