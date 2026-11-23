@@ -4,7 +4,7 @@ from typing import Annotated
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from . import subnetting
 
@@ -28,6 +28,26 @@ def comprobar_ip_en_red(
     """Indica si una IP pertenece a una red y si es de red, broadcast o un host utilizable."""
     try:
         return subnetting.ip_in_network(ip, red)
+    except subnetting.SubnettingError as error:
+        raise ToolError(str(error)) from None
+class RequisitoSubred(BaseModel):
+    """Una subred que hay que crear y los hosts que necesita."""
+
+    nombre: Annotated[str, Field(description="Nombre de la subred, p. ej. 'Ventas'")]
+    hosts: Annotated[int, Field(ge=1, description="Número de hosts que necesita")]
+
+
+@mcp.tool()
+def dividir_vlsm(
+    red_base: Annotated[str, Field(description="Red a repartir, p. ej. 192.168.1.0/24")],
+    subredes: Annotated[list[RequisitoSubred], Field(min_length=1)],
+) -> subnetting.VlsmResult:
+    """Reparte una red entre varias subredes con VLSM (de mayor a menor número de hosts)."""
+    nombres = [s.nombre for s in subredes]
+    if len(set(nombres)) != len(nombres):
+        raise ToolError("Hay nombres de subred repetidos; usa un nombre distinto para cada una.")
+    try:
+        return subnetting.vlsm(red_base, {s.nombre: s.hosts for s in subredes})
     except subnetting.SubnettingError as error:
         raise ToolError(str(error)) from None
 

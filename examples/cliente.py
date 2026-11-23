@@ -20,15 +20,27 @@ async def main() -> None:
         for tool in (await client.list_tools()).tools:
             print(f"- {tool.name}: {tool.description}")
 
-        print("\n>>> calcular_subred 172.16.5.9/20")
-        r = await client.call_tool("calcular_subred", {"red": "172.16.5.9/20"})
-        mostrar(r.structured_content)
-
-        print("\n>>> comprobar_ip_en_red 192.168.1.191 en 192.168.1.128/26")
+        print("\n>>> dividir_vlsm 192.168.10.0/24")
         r = await client.call_tool(
-            "comprobar_ip_en_red", {"ip": "192.168.1.191", "red": "192.168.1.128/26"}
+            "dividir_vlsm",
+            {
+                "red_base": "192.168.10.0/24",
+                "subredes": [
+                    {"nombre": "Alumnos", "hosts": 60},
+                    {"nombre": "Profesores", "hosts": 25},
+                    {"nombre": "Servidores", "hosts": 10},
+                ],
+            },
         )
-        mostrar(r.structured_content)
+        for s in r.structured_content["subredes"]:
+            print(f"{s['nombre']:<12} {s['subred']:<18} gateway {s['primer_host']}")
+
+        print("\n>>> dividir_vlsm con hosts = 0 (error de validación)")
+        r = await client.call_tool(
+            "dividir_vlsm",
+            {"red_base": "192.168.10.0/24", "subredes": [{"nombre": "X", "hosts": 0}]},
+        )
+        print(r.content[0].text)
 
 
 if __name__ == "__main__":
