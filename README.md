@@ -1,6 +1,6 @@
 # netops-mcp
 
-[![CI](https://github.com/TU_USUARIO/netops-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/TU_USUARIO/netops-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/ivanTt30/netops-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanTt30/netops-mcp/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue)
 ![MCP](https://img.shields.io/badge/MCP-SDK%202.x-8A2BE2)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -74,7 +74,7 @@ netops-mcp/
 Requisitos: **Python 3.12+** y **[uv](https://docs.astral.sh/uv/)**.
 
 ```bash
-git clone https://github.com/TU_USUARIO/netops-mcp.git
+git clone https://github.com/ivanTt30/netops-mcp.git
 cd netops-mcp
 uv sync
 ```

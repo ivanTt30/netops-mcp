@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Servidor MCP con herramienta de redes: subredes, VLSM, diagnóstico y configuración de CISCO IOS"
 readme = "README.md"
 authors = [
-    { name = "Ivan Tercero Barrios", email = "terceroivan2007@gmail.com" }
+    { name = "Ivan Tercero Barrios" }
 ]
 requires-python = ">=3.12"
 dependencies = [
