@@ -2,18 +2,21 @@
 
 from typing import Annotated
 
+import anyio
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
-from . import subnetting
+from . import diagnostics, subnetting
 
 mcp = MCPServer(
     name="netops-mcp",
     instructions=(
-        "Herramientas de redes IPv4: cálculo de subredes, VLSM y comprobación de IPs. "
-        "Usa SIEMPRE estas herramientas para cualquier cálculo de direccionamiento "
-        "en lugar de calcularlo tú, porque sus resultados son exactos y verificados."
+        "Herramientas de redes: cálculo de subredes IPv4, VLSM y comprobación de IPs, "
+        "y diagnóstico real (DNS, ping y puertos TCP) desde el equipo donde se ejecuta. "
+        "Usa SIEMPRE estas herramientas para cálculos de direccionamiento y diagnósticos "
+        "en lugar de calcularlos tú o usar otros comandos."
     ),
 )
 
@@ -56,6 +59,44 @@ def dividir_vlsm(
     try:
         return subnetting.vlsm(red_base, {s.nombre: s.hosts for s in subredes})
     except subnetting.SubnettingError as error:
+        raise ToolError(str(error)) from None
+
+# Estas tools salen a la red real: se lo indicamos al cliente con "annotations"
+SONDA_DE_RED = ToolAnnotations(read_only_hint=True, open_world_hint=True)
+
+
+@mcp.tool(annotations=SONDA_DE_RED)
+async def resolver_dns(
+    dominio: Annotated[str, Field(description="Nombre a resolver, p. ej. github.com")],
+) -> diagnostics.DnsResult:
+    """Resuelve un dominio a sus direcciones IPv4 e IPv6 con el DNS del equipo."""
+    try:
+        return await anyio.to_thread.run_sync(diagnostics.resolver_dns, dominio)
+    except diagnostics.DiagnosticsError as error:
+        raise ToolError(str(error)) from None
+
+
+@mcp.tool(annotations=SONDA_DE_RED)
+async def comprobar_puerto(
+    host: Annotated[str, Field(description="IP o nombre del equipo")],
+    puerto: Annotated[int, Field(ge=1, le=65535, description="Puerto TCP, p. ej. 443")],
+) -> diagnostics.PortResult:
+    """Comprueba si un puerto TCP de un equipo está abierto, cerrado o filtrado."""
+    try:
+        return await anyio.to_thread.run_sync(diagnostics.comprobar_puerto, host, puerto)
+    except diagnostics.DiagnosticsError as error:
+        raise ToolError(str(error)) from None
+
+
+@mcp.tool(annotations=SONDA_DE_RED)
+async def hacer_ping(
+    host: Annotated[str, Field(description="IP o nombre del equipo")],
+    paquetes: Annotated[int, Field(ge=1, le=10, description="Número de paquetes")] = 4,
+) -> diagnostics.PingResult:
+    """Hace ping a un equipo: indica si responde, el % de pérdida y la latencia."""
+    try:
+        return await anyio.to_thread.run_sync(diagnostics.hacer_ping, host, paquetes)
+    except diagnostics.DiagnosticsError as error:
         raise ToolError(str(error)) from None
 
 def main() -> None:
