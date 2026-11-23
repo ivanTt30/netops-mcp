@@ -7,23 +7,28 @@ import anyio
 from mcp import Client, StdioServerParameters
 
 
+def mostrar(datos: object) -> None:
+    """Imprime un diccionario como JSON bonito."""
+    print(json.dumps(datos, indent=2, ensure_ascii=False))
+
+
 async def main() -> None:
-    # 1. Cómo arrancar el servidor: con este mismo Python, ejecutando el paquete
     servidor = StdioServerParameters(command=sys.executable, args=["-m", "netops_mcp"])
 
-    # 2. Conectarse: lanza el servidor y hace el saludo inicial del protocolo
     async with Client(servidor) as client:
-        # 3. Preguntar qué tools ofrece
-        resultado = await client.list_tools()
-        for tool in resultado.tools:
-            print(f"Tool: {tool.name}")
-            print(f"  Descripción: {tool.description.splitlines()[0]}")
-            print(f"  Esquema de entrada: {json.dumps(tool.input_schema)}")
+        print("Tools del servidor:")
+        for tool in (await client.list_tools()).tools:
+            print(f"- {tool.name}: {tool.description}")
 
-        # 4. Llamar a una tool, igual que haría Claude
-        respuesta = await client.call_tool("calcular_subred", {"red": "192.168.1.0/22"})
-        print("\nRespuesta de calcular_subred:")
-        print(respuesta.content[0].text)
+        print("\n>>> calcular_subred 172.16.5.9/20")
+        r = await client.call_tool("calcular_subred", {"red": "172.16.5.9/20"})
+        mostrar(r.structured_content)
+
+        print("\n>>> comprobar_ip_en_red 192.168.1.191 en 192.168.1.128/26")
+        r = await client.call_tool(
+            "comprobar_ip_en_red", {"ip": "192.168.1.191", "red": "192.168.1.128/26"}
+        )
+        mostrar(r.structured_content)
 
 
 if __name__ == "__main__":

@@ -77,3 +77,36 @@ def subnet_info(red: str) -> SubnetInfo:
         hosts_utilizables=hosts,
         tipo=tipo_de_red(net),
     )
+
+
+
+class IpCheck(BaseModel):
+    """Resultado de comprobar si una IP pertenece a una red."""
+
+    ip: str
+    red: str
+    pertenece: bool
+    papel: str
+
+
+def ip_in_network(ip: str, red: str) -> IpCheck:
+    """Comprueba si una IP pertenece a una red y qué papel tiene en ella."""
+    try:
+        direccion = ipaddress.IPv4Address(ip.strip())
+    except ValueError:
+        raise SubnettingError(f"'{ip}' no es una dirección IPv4 válida.") from None
+
+    net = parse_network(red)
+
+    if direccion not in net:
+        papel = "fuera de la red"
+    elif net.prefixlen >= 31:
+        papel = "host utilizable"
+    elif direccion == net.network_address:
+        papel = "dirección de red (no se puede asignar)"
+    elif direccion == net.broadcast_address:
+        papel = "broadcast (no se puede asignar)"
+    else:
+        papel = "host utilizable"
+
+    return IpCheck(ip=str(direccion), red=str(net), pertenece=direccion in net, papel=papel)
