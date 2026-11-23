@@ -110,3 +110,78 @@ def ip_in_network(ip: str, red: str) -> IpCheck:
         papel = "host utilizable"
 
     return IpCheck(ip=str(direccion), red=str(net), pertenece=direccion in net, papel=papel)
+
+
+
+def prefijo_para_hosts(hosts: int) -> int:
+    """Devuelve el prefijo más ajustado que admite ese número de hosts."""
+    if hosts < 1:
+        raise SubnettingError("El número de hosts debe ser al menos 1.")
+    for prefijo in range(30, 0, -1):
+        if 2 ** (32 - prefijo) - 2 >= hosts:
+            return prefijo
+    raise SubnettingError(f"No existe una red IPv4 con {hosts} hosts.")
+
+
+class SubredVlsm(BaseModel):
+    """Una subred asignada por VLSM."""
+
+    nombre: str
+    hosts_pedidos: int
+    subred: str
+    mascara: str
+    primer_host: str
+    ultimo_host: str
+    broadcast: str
+    hosts_sobrantes: int
+
+
+class VlsmResult(BaseModel):
+    """Resultado completo del reparto VLSM."""
+
+    red_base: str
+    subredes: list[SubredVlsm]
+    direcciones_libres: int
+
+
+def vlsm(red_base: str, necesidades: dict[str, int]) -> VlsmResult:
+    """Reparte una red entre varias subredes con VLSM (de mayor a menor)."""
+    base = parse_network(red_base)
+
+    # 1. Ordenar de mayor a menor número de hosts, como se hace a mano
+    ordenadas = sorted(necesidades.items(), key=lambda par: par[1], reverse=True)
+
+    # 2. Trabajar con las IPs como números para poder sumar
+    siguiente = int(base.network_address)  # primera dirección libre
+    final = int(base.broadcast_address)  # última dirección de la red base
+    subredes = []
+
+    for nombre, hosts in ordenadas:
+        prefijo = prefijo_para_hosts(hosts)
+        tamano = 2 ** (32 - prefijo)
+
+        if siguiente + tamano - 1 > final:
+            raise SubnettingError(
+                f"No queda espacio en {base} para '{nombre}' ({hosts} hosts)."
+            )
+
+        info = subnet_info(f"{ipaddress.IPv4Address(siguiente)}/{prefijo}")
+        subredes.append(
+            SubredVlsm(
+                nombre=nombre,
+                hosts_pedidos=hosts,
+                subred=f"{info.red}{info.cidr}",
+                mascara=info.mascara,
+                primer_host=info.primer_host,
+                ultimo_host=info.ultimo_host,
+                broadcast=info.broadcast,
+                hosts_sobrantes=info.hosts_utilizables - hosts,
+            )
+        )
+        siguiente += tamano  # 3. La siguiente subred empieza justo después
+
+    return VlsmResult(
+        red_base=str(base),
+        subredes=subredes,
+        direcciones_libres=final - siguiente + 1,
+    )
