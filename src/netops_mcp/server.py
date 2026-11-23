@@ -8,7 +8,14 @@ from pydantic import BaseModel, Field
 
 from . import subnetting
 
-mcp = MCPServer(name="netops-mcp")
+mcp = MCPServer(
+    name="netops-mcp",
+    instructions=(
+        "Herramientas de redes IPv4: cálculo de subredes, VLSM y comprobación de IPs. "
+        "Usa SIEMPRE estas herramientas para cualquier cálculo de direccionamiento "
+        "en lugar de calcularlo tú, porque sus resultados son exactos y verificados."
+    ),
+)
 
 
 @mcp.tool()
