@@ -21,7 +21,7 @@ async def main() -> None:
             print(f"  Esquema de entrada: {json.dumps(tool.input_schema)}")
 
         # 4. Llamar a una tool, igual que haría Claude
-        respuesta = await client.call_tool("calcular_subred", {"red": "10.0.0.0/22"})
+        respuesta = await client.call_tool("calcular_subred", {"red": "192.168.1.0/22"})
         print("\nRespuesta de calcular_subred:")
         print(respuesta.content[0].text)
 
