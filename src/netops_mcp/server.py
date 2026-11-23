@@ -195,6 +195,35 @@ def recurso_subred(ip: str, prefijo: str) -> str:
     except subnetting.SubnettingError as error:
         raise ResourceError(str(error)) from None
 
+# --- Prompts: plantillas de tareas que el usuario elige desde el cliente ---
+
+
+@mcp.prompt(title="Diseñar una red con VLANs")
+def disenar_red(red_base: str, departamentos: str) -> str:
+    """Diseña el direccionamiento VLSM, las VLANs y la configuración de switch y router."""
+    return (
+        f"Quiero diseñar una red a partir de {red_base} para estos departamentos "
+        f"(nombre: hosts): {departamentos}.\n\n"
+        "1. Usa `dividir_vlsm` para repartir la red.\n"
+        "2. Asigna una VLAN a cada departamento (10, 20, 30...).\n"
+        "3. Usa `generar_config_switch` para el switch y `generar_config_router` "
+        "para el router, con DHCP.\n"
+        "4. Presenta primero una tabla resumen y después la configuración paso a paso, "
+        "explicando brevemente cada paso antes de sus comandos."
+    )
+
+
+@mcp.prompt(title="Diagnosticar conectividad")
+def diagnosticar_conectividad(host: str, puerto: str = "443") -> str:
+    """Diagnóstico por capas de un equipo o servicio que no responde."""
+    return (
+        f"No consigo conectarme a {host} (puerto {puerto}). Diagnostícalo por capas:\n"
+        "1. `resolver_dns`: ¿el nombre resuelve a una IP? (capa de aplicación, DNS)\n"
+        "2. `hacer_ping`: ¿el equipo es alcanzable? (capa de red, ICMP)\n"
+        f"3. `comprobar_puerto` en el {puerto}: ¿el servicio escucha? (capa de transporte, TCP)\n"
+        "Explica qué indica cada resultado y cuál es la causa más probable del problema."
+    )
+
 def main() -> None:
     """Arranca el servidor MCP usando stdio (entrada y salida estándar)."""
     mcp.run(transport="stdio")
