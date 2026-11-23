@@ -8,7 +8,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
-from . import diagnostics, subnetting
+from . import cisco, diagnostics, subnetting
 
 mcp = MCPServer(
     name="netops-mcp",
@@ -97,6 +97,67 @@ async def hacer_ping(
     try:
         return await anyio.to_thread.run_sync(diagnostics.hacer_ping, host, paquetes)
     except diagnostics.DiagnosticsError as error:
+        raise ToolError(str(error)) from None
+# Estas tools solo generan texto: no tocan ningún equipo ni salen a la red
+SOLO_TEXTO = ToolAnnotations(read_only_hint=True, open_world_hint=False)
+
+
+class Vlan(BaseModel):
+    """Una VLAN del switch."""
+
+    id: Annotated[int, Field(ge=1, le=4094, description="Número de VLAN, p. ej. 10")]
+    nombre: Annotated[str, Field(description="Nombre de la VLAN, p. ej. ALUMNOS")]
+
+
+class PuertoAcceso(BaseModel):
+    """Puertos de equipos finales y la VLAN a la que pertenecen."""
+
+    interfaz: Annotated[str, Field(description="Interfaz o rango, p. ej. Fa0/1-12")]
+    vlan: Annotated[int, Field(description="VLAN de esos puertos")]
+
+
+class SubredVlan(BaseModel):
+    """Subred asociada a una VLAN."""
+
+    vlan: Annotated[int, Field(description="Número de VLAN")]
+    red: Annotated[str, Field(description="Subred en CIDR, p. ej. 192.168.10.0/26")]
+
+
+@mcp.tool(annotations=SOLO_TEXTO)
+def generar_config_switch(
+    vlans: Annotated[list[Vlan], Field(min_length=1)],
+    puertos_acceso: list[PuertoAcceso] | None = None,
+    puerto_trunk: Annotated[
+        str | None, Field(description="Puerto troncal hacia el router, p. ej. Gi0/1")
+    ] = None,
+) -> cisco.ConfigResult:
+    """Genera paso a paso la configuración Cisco IOS de un switch: VLANs, accesos y trunk."""
+    try:
+        return cisco.config_vlans_switch(
+            vlans={v.id: v.nombre for v in vlans},
+            puertos_acceso={p.interfaz: p.vlan for p in puertos_acceso or []},
+            puerto_trunk=puerto_trunk,
+        )
+    except cisco.CiscoConfigError as error:
+        raise ToolError(str(error)) from None
+
+
+@mcp.tool(annotations=SOLO_TEXTO)
+def generar_config_router(
+    interfaz: Annotated[str, Field(description="Interfaz hacia el switch, p. ej. Gi0/0")],
+    subredes: Annotated[list[SubredVlan], Field(min_length=1)],
+    con_dhcp: bool = True,
+    dns: Annotated[str, Field(description="Servidor DNS para los clientes DHCP")] = "8.8.8.8",
+) -> cisco.ConfigResult:
+    """Genera la configuración router-on-a-stick: subinterfaces 802.1Q por VLAN y DHCP."""
+    try:
+        return cisco.config_router_on_a_stick(
+            interfaz=interfaz,
+            subredes={s.vlan: s.red for s in subredes},
+            con_dhcp=con_dhcp,
+            dns=dns,
+        )
+    except cisco.CiscoConfigError as error:
         raise ToolError(str(error)) from None
 
 def main() -> None:
